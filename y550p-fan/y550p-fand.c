@@ -55,6 +55,7 @@ enum {
     START_KICK_SECONDS = 5,
     TACH_RETRY_SECONDS = 5,
     LOOP_MS = 500,
+    LOG_INTERVAL_LOOPS = 120,
 };
 
 static volatile sig_atomic_t stop_requested;
@@ -310,7 +311,7 @@ static void write_status_file(long temp_mc, uint8_t wanted, uint8_t sent,
     if (!fp)
         return;
     if (temp_mc >= 0)
-        fprintf(fp, "temperature_c=%.1f\n", temp_mc / 1000.0);
+        fprintf(fp, "temperature_c=%.1f\n", (double)temp_mc / 1000.0);
     else
         fprintf(fp, "temperature_c=unavailable\n");
     fprintf(fp, "wanted_command=0x%02x\n", wanted);
@@ -437,14 +438,16 @@ int main(int argc, char **argv)
                      TACH_RETRY_SECONDS);
         }
 
-        if (sent != previous_sent || loops % 10 == 0 || !path_ready ||
+        if (sent != previous_sent || loops % LOG_INTERVAL_LOOPS == 0 ||
+            !path_ready ||
             (!tach.valid && loops % 4 == 0)) {
             if (temp_mc >= 0)
                 log_line(tach.valid ? "INFO" : "WARNING",
                          "temp=%.1fC wanted=0x%02x sent=0x%02x "
                          "effective=0x%02x tach=%s rpm=%u status=0x%02x "
                          "count=0x%03x path=%s",
-                         temp_mc / 1000.0, wanted, sent, ec_read(EC_DAC1),
+                         (double)temp_mc / 1000.0, wanted, sent,
+                         ec_read(EC_DAC1),
                          tach.valid ? "valid" : "invalid", tach.rpm,
                          tach.status, tach.count,
                          path_ready ? "ready" : "not-ready");
